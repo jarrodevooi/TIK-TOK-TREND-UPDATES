@@ -3,31 +3,44 @@ import requests
 import asyncio
 from telegram import Bot
 
-# Get secrets from GitHub Environment
+# 1. Setup Keys
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-CHAT_ID = os.getenv('TELEGRAM_CHAT_ID') 
+CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+APIFY_TOKEN = os.getenv('APIFY_TOKEN')
 
-# This uses a public Trend API (you can swap this for Apify or TikAPI later)
-TIKTOK_TREND_API = "https://ads.tiktok.com/marketing_api/creative_center/challenge/get_list"
-
-async def get_trends():
+async def get_tiktok_trends():
     bot = Bot(token=TELEGRAM_TOKEN)
     
-    # Logic to fetch from TikTok Creative Center (Simplified for this example)
-    # In a real scenario, you'd use a RapidAPI or Apify URL here
-    sample_trends = [
-        {"title": "Morning Routine", "growth": "150%", "link": "https://vt.tiktok.com/ZS.../"},
-        {"title": "Home Office Setup", "growth": "85%", "link": "https://vt.tiktok.com/ZS.../"}
-    ]
+    # 2. Call Apify to get REAL Malaysian Trends
+    # This specifically targets Trending Videos in Malaysia (MY)
+    api_url = f"https://api.apify.com/v2/acts/clockworks~tiktok-trends-scraper/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+    
+    payload = {
+        "type": "videos",
+        "region": "MY",  # Focused on Malaysia
+        "limit": 5
+    }
 
-    for trend in sample_trends:
-        message = (
-            f"🚀 **New TikTok Trend Spotted**\n\n"
-            f"📌 **Topic:** {trend['title']}\n"
-            f"📈 **Growth:** {trend['growth']}\n"
-            f"🔗 [Watch Example]({trend['link']})"
-        )
-        await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode='Markdown')
+    try:
+        response = requests.post(api_url, json=payload)
+        trends = response.json()
+
+        for item in trends:
+            title = item.get('videoTitle', 'No Title')
+            url = item.get('url', '')
+            views = item.get('views', '0')
+            
+            # 3. Send the real data to Telegram
+            message = (
+                f"🇲🇾 **Live Malaysia Trend**\n\n"
+                f"🎬 **Video:** {title}\n"
+                f"👀 **Views:** {views}\n"
+                f"🔗 {url}"
+            )
+            await bot.send_message(chat_id=CHAT_ID, text=message)
+            
+    except Exception as e:
+        print(f"Error fetching trends: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(get_trends())
+    asyncio.run(get_tiktok_trends())
